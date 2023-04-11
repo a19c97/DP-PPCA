@@ -1,20 +1,11 @@
 import numpy as np
 import pandas as pd
+import torch
 from numpy.linalg import norm
 import os
+import matplotlib.pyplot as plt
+from load_data import load_MNIST_data, load_tabular_data
 
-def load_data():
-    data_path = './data/wine.data'
-    data = pd.read_csv(data_path)
-    data = data.to_numpy()
-    data = data[:, 1:].T
-
-    # Train-test split
-    N = data.shape[1]
-    train_N = int(np.floor(N*0.7))
-    train_data = data[:, :train_N]
-    test_data = data[:, train_N:]
-    return train_data, test_data
 
 def compute_cov_mtx(t, method=None):
     """
@@ -75,7 +66,7 @@ class PPCA():
         """
         S = np.cov(t)
         L = (-self.N/2) * (
-            self.d * np.log(2*np.pi) + np.log(norm(self.C) + np.trace(self.C @ S))
+            self.d * np.log(2*np.pi) + np.log(norm(self.C)) + np.trace(np.linalg.inv(self.C) @ S)
         )
         return L
 
@@ -83,7 +74,24 @@ class PPCA():
         pass
 
 if __name__ == '__main__':
-    train_data, test_data = load_data()
-    model = PPCA(train_data, 2)
-    print(model.train_data_ll())
-    print(model.log_likelihood(test_data))
+    # train_data, test_data = load_tabular_data('wine')
+
+    try:
+        train_data, test_data = load_MNIST_data()
+        model = PPCA(train_data, 100)
+        print(model.train_data_ll())
+        print(model.log_likelihood(test_data))
+    except:
+        import sys, pdb, traceback
+        extype, value, tb = sys.exc_info()
+        traceback.print_exc()
+        pdb.post_mortem(tb)
+
+    # Plotting MNIST images
+    # for i in range(6):
+    #         idx = np.random.randint(low=0, high=len(test_data))
+    #         plt.subplot(2, 3, i + 1)
+    #         plt.tight_layout()
+    #         pixels = test_data[idx].reshape(28, 28)
+    #         plt.imshow(pixels, cmap='gray', interpolation='none')
+    # plt.show()
