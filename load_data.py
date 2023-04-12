@@ -22,7 +22,7 @@ def load_MNIST_data():
     test_set = datasets.MNIST('./data', train=False, download=True).data.numpy()
     train_set = train_set.reshape(train_set.shape[0], 784).T
     test_set = test_set.reshape(test_set.shape[0], 784).T
-    train_set = train_set[:, :2000]
+    train_set = train_set[:, :10000]
     test_set = test_set[:, :500]
 
     return train_set, test_set
