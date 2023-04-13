@@ -5,20 +5,8 @@ from numpy.linalg import norm
 import os
 import matplotlib.pyplot as plt
 from load_data import load_MNIST_data, load_tabular_data
+from cov_mtx import compute_cov_mtx
 
-
-def compute_cov_mtx(t, method=None):
-    """
-    Compute covariance matrix given d dimensional data points
-    :param t: d-by-n data matrix, each column is a data point
-    :param method: which private algorithm to use for computing
-        covariance matrix; if None, do not add privacy
-    :return: d-by-d covariance matrix
-    """
-    if method is None:
-        # Standard, non-private way of computing cov
-        return np.cov(t)
-    # elif method == ''
 
 class PPCA():
     def __init__(self, t, q):
@@ -32,7 +20,7 @@ class PPCA():
         self.q = q
         self.d = t.shape[0]
         self.N = t.shape[1]
-        self.S = compute_cov_mtx(t)
+        self.S = compute_cov_mtx(t, method='rejection_sampling', epsilon=1)
         self.R = np.identity(q)
         self.mu = np.mean(self.t, axis=1)
 
