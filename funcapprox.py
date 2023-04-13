@@ -6,14 +6,17 @@ def f(lor,b):
     return su
 
 
-def findz(lor, err):
+def findz(lor, orerr):
     lor.sort()
-    err=min(err,min([abs(lor[i]-lor[i+1])/10 for i in range(len(lor)-1)]))
     for i in range(len(lor)-1):
+        err=min(orerr,abs(lor[i]-lor[i+1])/100)
+        print(err)
         pr=lor[i]+err
         nx=lor[i+1]-err
         if(sign(f(lor,pr))==sign(f(lor,nx))):
+           print("not supposed to happen")
            continue
+        
         mid=((pr+nx)/2)
         fm=f(lor,mid)
         ct=0
@@ -32,5 +35,5 @@ def findz(lor, err):
 
         return mid
            
-lor=[-1,-1.2,-1.3,-1.4]
+lor=[-4,-5,-7,-10]
 print(findz(lor,0.001))
