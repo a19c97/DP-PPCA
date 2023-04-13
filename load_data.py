@@ -23,6 +23,6 @@ def load_MNIST_data():
     train_set = train_set.reshape(train_set.shape[0], 784).T
     test_set = test_set.reshape(test_set.shape[0], 784).T
     train_set = train_set[:, :10000]
-    test_set = test_set[:, :500]
+    test_set = test_set[:, :1000]
 
     return train_set, test_set

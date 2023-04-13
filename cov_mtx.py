@@ -2,7 +2,7 @@ import numpy as np
 
 
 
-def compute_cov_mtx(t, method=None, epsilon=None):
+def compute_cov_mtx(t, method=None, epsilon=None, delta=None):
     """
     Compute covariance matrix given d dimensional data points
     :param t: d-by-n data matrix, each column is a data point
@@ -12,14 +12,17 @@ def compute_cov_mtx(t, method=None, epsilon=None):
     """
     # Standard, non-private way of computing cov
     cov_mtx = np.cov(t)
+    d = t.shape[0]
 
     if method is None:
         assert epsilon is None
         return cov_mtx
     elif method == 'rejection_sampling':
+        assert epsilon is not None
+        assert delta is None
+
         # Initialize variables
         C = cov_mtx
-        d = t.shape[0]
         P = np.identity(d)
         eigs = np.linalg.eig(C)
         lambdas = eigs[0]
@@ -35,7 +38,20 @@ def compute_cov_mtx(t, method=None, epsilon=None):
 
             # Step b) Find orthonormal basis orthogonal to existing thetas
     elif method == 'analyze_gauss':
-        pass
+        # Compute sensitivity
+        assert epsilon is not None and delta is not None
+        sensitivity = np.sqrt((2*np.log(1.25/delta)) / epsilon)
+
+        # Sample error matrix (upper triangular part)
+        E = np.zeros((d, d))
+        for i in range(d):
+            for j in range(i, d):
+                E[i, j] = np.random.normal(0, sensitivity**2)
+
+        # fill the lower triangular part of the matrix with the upper triangular part
+        E += np.triu(E, k=1).T
+        assert check_symmetric(E), 'Error matrix must be symmetric!'
+        return cov_mtx + E
     else:
         raise ValueError('Unsupported covariance computation method!')
 

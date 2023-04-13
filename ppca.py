@@ -9,7 +9,7 @@ from cov_mtx import compute_cov_mtx
 
 
 class PPCA():
-    def __init__(self, t, q):
+    def __init__(self, t, test_t, q, cov_mtx_method=None, epsilon=None, delta=None):
         """
 
         :param t: d-by-n data matrix, each column is a data point
@@ -17,12 +17,15 @@ class PPCA():
             i.e.: number of dimensions to project data to
         """
         self.t = t
+        self.test_t = test_t
         self.q = q
         self.d = t.shape[0]
         self.N = t.shape[1]
-        self.S = compute_cov_mtx(t, method='rejection_sampling', epsilon=1)
+        self.S = compute_cov_mtx(
+            t, method=cov_mtx_method, epsilon=epsilon, delta=delta
+        )
         self.R = np.identity(q)
-        self.mu = np.mean(self.t, axis=1)
+        self.mu = np.mean(self.t, axis=1).reshape(self.d, 1)
 
         # Find eigenvalues and eigenvectors
         eigs = np.linalg.eig(self.S)
@@ -49,6 +52,9 @@ class PPCA():
     def train_data_ll(self):
         return self.log_likelihood(self.t)
 
+    def test_data_ll(self):
+        return self.log_likelihood(self.test_t)
+
     def log_likelihood(self, t):
         """
         :param t: d-by-n matrix of observed (test) data
@@ -63,11 +69,16 @@ class PPCA():
     def reconstruct_sample(self, t):
         """
         Generate sample from fitted PPCA model
-        :param t: d by n data matrix to project and then reconstruct
-        :return: reconstructed d by n data matrix
+        :param t: d-by-n data matrix to project and then reconstruct
+        :return: reconstructed d-by-n data matrix
         """
         t_hat = self.W @ np.linalg.inv(self.W.T @ self.W) @ self.W.T @ (t - self.mu) + self.mu
         return t_hat.real
+
+    def compute_avg_recon_error(self, t):
+        t_hat = self.reconstruct_sample(t)
+        recon_error = np.linalg.norm(t_hat - t)
+        return recon_error / t.shape[1]
 
     def generate_sample(self):
         """
