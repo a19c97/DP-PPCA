@@ -1,6 +1,6 @@
 import numpy as np
-
-
+from funcapprox import findz
+from scipy.linalg import null_space
 
 def compute_cov_mtx(t, method=None, epsilon=None, delta=None):
     """
@@ -25,18 +25,38 @@ def compute_cov_mtx(t, method=None, epsilon=None, delta=None):
         C = cov_mtx
         P = np.identity(d)
         eigs = np.linalg.eig(C)
-        lambdas = eigs[0]
+        lambdas = eigs[0].real.reshape(d, 1)
         eps0 = epsilon/2
         lambdas_hat = lambdas + np.random.laplace(2/eps0, size=(d, 1))
-        thetas = []
+        thetas = np.array([])
 
         for i in range(1, d+1):
+            print(f'Eigenvector sampling, iteration {i} ...')
             # Step a) sample u_i
             eps_i = epsilon / (2*d)
-            u = rejection_sampling(C, d, eps_i)
+            u = rejection_sampling(C, eps_i)
             theta = P.T @ u
+            if i == 1:
+                thetas = theta
+            else:
+                thetas = np.concatenate((thetas, theta), axis=1)
 
             # Step b) Find orthonormal basis orthogonal to existing thetas
+            P_next = null_space(thetas.T).T
+
+            # Step c) Update C
+            C_next = P_next @ cov_mtx @ P_next.T
+
+            P = P_next
+            C = C_next
+
+        # Compute private cov mtx
+        sum = 0
+        for i in range(1, d):
+            theta_i = thetas[:, i-1]
+            theta_i = theta_i.reshape(d, 1)
+            sum = sum + lambdas_hat[i-1] * theta_i @ theta_i.T
+        return sum
     elif method == 'analyze_gauss':
         # Compute sensitivity
         assert epsilon is not None and delta is not None
@@ -55,22 +75,35 @@ def compute_cov_mtx(t, method=None, epsilon=None, delta=None):
     else:
         raise ValueError('Unsupported covariance computation method!')
 
-def rejection_sampling(C, d, eps):
+
+def rejection_sampling(C, eps):
+    d = C.shape[0]
+    if d == 1:
+        return np.array([1.0]).reshape(1, 1)
     lambdas = np.linalg.eig(C)[0].real
     lambda_d = np.flip(np.sort(lambdas))[-1]
     A = (-eps/4)*C + (eps/4)*lambda_d*np.identity(d)
 
-    # Use Newton's method to solve for b
-    def f(b):
-        return sum(1/(b + 2*lambdas))
-
-    def grad_f(b):
-        return sum(-1/(b + 2*lambdas)**2)
-
-    x0 = np.mean(lambdas)
-    b = newton(x0, 100, f, grad_f, disconts=lambdas)
-    import pdb; pdb.set_trace()
+    b = findz(-lambdas, 0.001)
     Pi = np.identity(d) + (2*A)/b
+    m = np.exp(-(d-b)/2) * ((d/b)**(d/2))
+    while True:
+        z = np.random.multivariate_normal(np.zeros(Pi.shape[0]), np.linalg.inv(Pi))
+        u = z / np.linalg.norm(z)
+        u = u.reshape(u.shape[0], 1)
+        if m == 0.0:
+            prob = 1
+        elif np.isnan(0):
+            prob = 0
+        else:
+            prob = np.exp(-u.T @ A @ u) / m*(u.T @ Pi @ u)**(d/2)
+        prob = np.max([np.min([1, prob]), 0])
+        # if np.random.binomial(1, prob):
+        #     return u
+        # else:
+        #     print(f'Prob = {prob}, rejected')
+        return u
+
 
 def newton(x0, num_steps, f, grad_f, disconts=None):
     x = x0
@@ -102,12 +135,12 @@ def check_symmetric(a, rtol=1e-05, atol=1e-08):
     return np.allclose(a, a.T, rtol=rtol, atol=atol)
 
 
-if __name__ == '__main__':
-    # Sanity check Newton's method
-    def f(b):
-        return 1/(b+1)
-
-    def grad_f(b):
-        return -1/(b+1)**2
-
-    newton(2, 100, f, grad_f, [-1])
+# if __name__ == '__main__':
+#     # Sanity check Newton's method
+#     def f(b):
+#         return 1/(b+1)
+#
+#     def grad_f(b):
+#         return -1/(b+1)**2
+#
+#     newton(2, 100, f, grad_f, [-1])
