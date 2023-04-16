@@ -84,24 +84,31 @@ def rejection_sampling(C, eps):
     lambda_d = np.flip(np.sort(lambdas))[-1]
     A = (-eps/4)*C + (eps/4)*lambda_d*np.identity(d)
 
-    b = findz(-lambdas, 0.001)
-    Pi = np.identity(d) + (2*A)/b
-    m = np.exp(-(d-b)/2) * ((d/b)**(d/2))
+    b = findz(-2*lambdas, 0.001)
+    omega = np.identity(d) + (2*A)/b
+    # m = np.exp(-(d-b)/2) * ((d/b)**(d/2))
+
+    logM = - (d-b)/2 + (d/2)*np.log(np.abs(d/b))
+
     while True:
-        z = np.random.multivariate_normal(np.zeros(Pi.shape[0]), np.linalg.inv(Pi))
+        z = np.random.multivariate_normal(np.zeros(omega.shape[0]), np.linalg.inv(omega))
         u = z / np.linalg.norm(z)
         u = u.reshape(u.shape[0], 1)
-        if m == 0.0:
-            prob = 1
-        elif np.isnan(0):
-            prob = 0
-        else:
-            prob = np.exp(-u.T @ A @ u) / m*(u.T @ Pi @ u)**(d/2)
-        prob = np.max([np.min([1, prob]), 0])
-        # if np.random.binomial(1, prob):
-        #     return u
+        # if m == 0.0:
+        #     prob = 1
+        # elif np.isnan(0):
+        #     prob = 0
         # else:
-        #     print(f'Prob = {prob}, rejected')
+        #     prob = np.exp(-u.T @ A @ u) / m*(u.T @ Pi @ u)**(d/2)
+        # prob = np.max([np.min([1, prob]), 0])
+
+        log_prob = -u.T @ A @ u - logM - (d/2)*np.log(u.T @ omega @ u)
+        prob = np.exp(log_prob)
+
+        if np.random.binomial(1, prob):
+            return u
+        else:
+            print(f'Prob = {prob}, rejected')
         return u
 
 

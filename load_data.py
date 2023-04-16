@@ -25,4 +25,14 @@ def load_MNIST_data():
     train_set = train_set[:, :10000]
     test_set = test_set[:, :1000]
 
+    # Normalize data
+    train_set = normalize_data(train_set)
+    test_set = normalize_data(test_set)
+
     return train_set, test_set
+
+def normalize_data(data):
+    sample_max = np.max(data, axis=1).reshape(data.shape[0], 1)
+    sample_min = np.min(data, axis=1).reshape(data.shape[0], 1)
+    data = (data - sample_min) / (sample_max - sample_min + 1e-12)
+    return data
