@@ -2,7 +2,7 @@ import numpy as np
 from funcapprox import findz
 from scipy.linalg import null_space
 
-def compute_cov_mtx(t, method=None, epsilon=None, delta=None):
+def compute_cov_mtx(t, method=None, epsilon=None, delta=None, m_bound=None):
     """
     Compute covariance matrix given d dimensional data points
     :param t: d-by-n data matrix, each column is a data point
@@ -27,14 +27,14 @@ def compute_cov_mtx(t, method=None, epsilon=None, delta=None):
         eigs = np.linalg.eig(C)
         lambdas = eigs[0].real.reshape(d, 1)
         eps0 = epsilon/2
-        lambdas_hat = lambdas + np.random.laplace(2/eps0, size=(d, 1))
+        lambdas_hat = lambdas + np.random.laplace(scale=2/eps0, size=(d, 1))
         thetas = np.array([])
 
         for i in range(1, d+1):
             print(f'Eigenvector sampling, iteration {i} ...')
             # Step a) sample u_i
             eps_i = epsilon / (2*d)
-            u = rejection_sampling(C, eps_i)
+            u = rejection_sampling(C, eps_i, m_bound)
             theta = P.T @ u
             if i == 1:
                 thetas = theta
@@ -72,11 +72,22 @@ def compute_cov_mtx(t, method=None, epsilon=None, delta=None):
         E += np.triu(E, k=1).T
         assert check_symmetric(E), 'Error matrix must be symmetric!'
         return cov_mtx + E
+    elif method == 'laplace':
+        # Sample noise matrix
+        assert epsilon is not None and delta is None
+        n = t.shape[1]
+        E = np.zeros((d, d))
+        for i in range(d):
+            for j in range(i, d):
+                E[i, j] = np.random.laplace(scale=(2*d)/(n*epsilon))
+        E += np.triu(E, k=1).T
+        assert check_symmetric(E), 'Error matrix must be symmetric!'
+        return cov_mtx + E
     else:
         raise ValueError('Unsupported covariance computation method!')
 
 
-def rejection_sampling(C, eps):
+def rejection_sampling(C, eps, m_bound):
     d = C.shape[0]
     if d == 1:
         return np.array([1.0]).reshape(1, 1)
@@ -86,10 +97,12 @@ def rejection_sampling(C, eps):
 
     b = findz(-2*lambdas, 0.001)
     omega = np.identity(d) + (2*A)/b
-    # m = np.exp(-(d-b)/2) * ((d/b)**(d/2))
+    m = np.exp(-(d-b)/2) * ((d/b)**(d/2))
+    if not (m > -m_bound and m < m_bound):
+        m = m_bound
+    # logM = - (d-b)/2 + (d/2)*np.log(np.abs(d/b))
 
-    logM = - (d-b)/2 + (d/2)*np.log(np.abs(d/b))
-
+    counter = 0
     while True:
         z = np.random.multivariate_normal(np.zeros(omega.shape[0]), np.linalg.inv(omega))
         u = z / np.linalg.norm(z)
@@ -102,15 +115,19 @@ def rejection_sampling(C, eps):
         #     prob = np.exp(-u.T @ A @ u) / m*(u.T @ Pi @ u)**(d/2)
         # prob = np.max([np.min([1, prob]), 0])
 
-        log_prob = -u.T @ A @ u - logM - (d/2)*np.log(u.T @ omega @ u)
-        prob = np.exp(log_prob)
+        # log_prob = -u.T @ A @ u - logM - (d/2)*np.log(u.T @ omega @ u)
+        # prob = np.exp(log_prob)
+
+        prob = np.exp(-u.T @ A @ u) / (m * (u.T @ omega @ u) ** (d / 2))
 
         if np.random.binomial(1, prob):
             return u
         else:
             print(f'Prob = {prob}, rejected')
-        return u
 
+        counter += 1
+        if counter >= 100:
+            import pdb; pdb.set_trace()
 
 def newton(x0, num_steps, f, grad_f, disconts=None):
     x = x0

@@ -9,7 +9,7 @@ from cov_mtx import compute_cov_mtx
 
 
 class PPCA():
-    def __init__(self, t, test_t, q, cov_mtx_method=None, epsilon=None, delta=None):
+    def __init__(self, t, test_t, q, cov_mtx_method=None, epsilon=None, delta=None, m_bound=None):
         """
 
         :param t: d-by-n data matrix, each column is a data point
@@ -22,7 +22,7 @@ class PPCA():
         self.d = t.shape[0]
         self.N = t.shape[1]
         self.S = compute_cov_mtx(
-            t, method=cov_mtx_method, epsilon=epsilon, delta=delta
+            t, method=cov_mtx_method, epsilon=epsilon, delta=delta, m_bound=m_bound
         )
         self.R = np.identity(q)
         self.mu = np.mean(self.t, axis=1).reshape(self.d, 1)
@@ -121,9 +121,15 @@ def recon(idx):
 if __name__ == '__main__':
     try:
         # Iterative eigenvector sampling method
-        train_data, test_data = load_MNIST_data()
-        model = PPCA(train_data, test_data, 100, cov_mtx_method='rejection_sampling', epsilon=1)
-        recon(3)
+
+
+        # train_data, test_data = load_MNIST_data()
+        # model = PPCA(train_data, test_data, 100, cov_mtx_method='rejection_sampling', epsilon=10, m_bound=1)
+        # model = PPCA(train_data, test_data, 100, cov_mtx_method='laplace', epsilon=0.1)
+        # model = PPCA(train_data, test_data, 100, cov_mtx_method='analyze_gauss', epsilon=10, delta=0.1)
+        # model = PPCA(train_data, test_data, 100)
+        # recon(0)
+
 
         # train_data, test_data = load_tabular_data('wine')
 
