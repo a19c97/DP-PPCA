@@ -9,6 +9,10 @@ from cov_mtx import compute_cov_mtx
 import pickle
 
 
+LABEL_SIZE = 18
+TITLE_SIZE = 32
+SUB_TITLE_SIZE = 20
+MARKER_SIZE = 20
 
 
 class PPCA():
@@ -24,6 +28,17 @@ class PPCA():
         self.q = q
         self.d = t.shape[0]
         self.N = t.shape[1]
+        if cov_mtx_method is None:
+            self.filename = 'non_private.pkl'
+        elif cov_mtx_method == 'rejection_sampling':
+            self.filename = f'IS_epsilon_{epsilon}.pkl'
+        elif cov_mtx_method == 'analyze_gauss':
+            self.filename = f'AG_epsilon_{epsilon}_delta_{delta}.pkl'
+        elif cov_mtx_method == 'laplace':
+            self.filename = f'LP_epsilon_{epsilon}.pkl'
+        else:
+            raise ValueError('Invalid cov_mtx_method!')
+
         self.S = compute_cov_mtx(
             t, method=cov_mtx_method, epsilon=epsilon, delta=delta, m_bound=m_bound
         )
@@ -92,19 +107,21 @@ class PPCA():
         :return: Generated sample
         """
         # Method 1: Generate x randomly
-        x = np.random.multivariate_normal(np.zeros(self.q), np.identity(self.q))
+        x = np.random.multivariate_normal(np.zeros(self.q), np.identity(self.q)).reshape(self.q, 1)
         # Method 2: Generate x based on the x|t distribution, basically setting t to mu
         # Likely not as correct
         # M_inv = np.linalg.inv(self.M).real
         # x = np.random.multivariate_normal(np.zeros(self.q), self.sigma * M_inv)
         mean = self.W @ x + self.mu
+        mean = mean.reshape(mean.shape[0], )
         variance = self.sigma * np.identity(self.d)
         t = np.random.multivariate_normal(mean, variance).reshape(self.d, 1)
         return t
 
 
 def save_model(model):
-    with open(model.filename, 'wb') as outp:  # Overwrites any existing file.
+    path = os.path.join('./saved_models', model.filename)
+    with open(path, 'wb') as outp:  # Overwrites any existing file.
         pickle.dump(model, outp, pickle.HIGHEST_PROTOCOL)
 
 
@@ -131,56 +148,105 @@ if __name__ == '__main__':
     try:
         # Iterative eigenvector sampling method
 
-
         # train_data, test_data = load_MNIST_data()
         # model = PPCA(train_data, test_data, 100, cov_mtx_method='rejection_sampling', epsilon=10, m_bound=1)
         # model = PPCA(train_data, test_data, 100, cov_mtx_method='laplace', epsilon=0.1)
         # model = PPCA(train_data, test_data, 100, cov_mtx_method='analyze_gauss', epsilon=10, delta=0.1)
         # model = PPCA(train_data, test_data, 100)
-        # recon(0)
-
-
-        # train_data, test_data = load_tabular_data('wine')
-
-        # MNIST experiments
-        # epsilon_list = [1e-2, 1e-1, 0.5, 1]
-        # delta_list = [0.001, 0.01, 0.1, 0.5]
-        # train_data, test_data = load_MNIST_data()
-        # fig, axs = plt.subplots(
-        #     1, 4, figsize=(12, 4), gridspec_kw={'wspace': 0.4}
-        # )
-        #
-        # for delta in delta_list:
-        #     analyze_gauss_errors = {}
-        #
-        #     orig_model = PPCA(train_data, test_data, 100)
-        #     orig_errors = orig_model.compute_avg_recon_error(orig_model.test_t)
-        #
-        #     for epsilon in epsilon_list:
-        #         gauss_model = PPCA(
-        #             train_data, test_data, 100, cov_mtx_method='analyze_gauss', epsilon=epsilon, delta=delta
-        #         )
-        #         analyze_gauss_errors[epsilon] = gauss_model.compute_avg_recon_error(gauss_model.test_t)
-        #
-        #     # Process errors and plot
-        #     df = pd.DataFrame(analyze_gauss_errors, index=['Analyze Gauss']).transpose()
-        #     df['Non-private'] = orig_errors
-        #     for col in list(df.columns):
-        #         plt.plot(df[col], label=col)
-        #     plt.legend()
-        #     plt.show()
-
-
-
-
+        # recon(0, model)
 
         # Generate samples
         # for idx in range(5):
         #     img = model.generate_sample().reshape(28, 28)
-        #     plt.subplot(1, 5, idx+1)
+        #     plt.subplot(1, 5, idx + 1)
         #     plt.tight_layout()
         #     plt.imshow(img, cmap='gray', interpolation='none')
         # plt.show()
+
+        # train_data, test_data = load_tabular_data('wine')
+
+        # MNIST experiments - main graph
+        # epsilon_list = [1e-3, 1e-2, 1e-1, 0.5, 1, 10]
+        # delta_list = [0.0001, 0.001, 0.01, 0.1]
+        # train_data, test_data = load_MNIST_data()
+        #
+        # for epsilon in epsilon_list:
+        #     is_model = PPCA(
+        #             train_data, test_data, 100, cov_mtx_method='rejection_sampling',
+        #             epsilon=epsilon, m_bound=1
+        #     )
+        #     save_model(is_model)
+        #
+        #     laplace_model = PPCA(train_data, test_data, 100, cov_mtx_method='laplace', epsilon=epsilon)
+        #     save_model(laplace_model)
+        #
+        #     for delta in delta_list:
+        #         gauss_model = PPCA(
+        #             train_data, test_data, 100, cov_mtx_method='analyze_gauss', epsilon=epsilon, delta=delta
+        #         )
+        #         save_model(gauss_model)
+
+        # MNIST zoomed-in AG versus baseline
+        epsilon_list = [0.0001, 0.0005, 0.001, 0.005, 0.0075, 0.01, 0.02, 0.03, 0.04, 0.05]
+        delta_list = [0.0001, 0.001, 0.01, 0.1]
+        train_data, test_data = load_MNIST_data()
+
+        orig_model = PPCA(train_data, test_data, 100)
+        orig_errors = orig_model.compute_avg_recon_error(orig_model.test_t)
+
+        fig, axs = plt.subplots(
+            2, 2, figsize=(12, 4), gridspec_kw={'wspace': 0.5}
+        )
+
+        for idx, delta in enumerate(delta_list):
+            analyze_gauss_errors = {}
+            laplace_errors = {}
+            is_errors = {}
+
+            for epsilon in epsilon_list:
+                gauss_model = PPCA(
+                    train_data, test_data, 100, cov_mtx_method='analyze_gauss', epsilon=epsilon, delta=delta
+                )
+                analyze_gauss_errors[epsilon] = gauss_model.compute_avg_recon_error(gauss_model.test_t)
+                # laplace_model = PPCA(train_data, test_data, 100, cov_mtx_method='laplace', epsilon=epsilon)
+                # laplace_errors[epsilon] = laplace_model.compute_avg_recon_error(laplace_model.test_t)
+                # is_model = PPCA(
+                #     train_data, test_data, 100, cov_mtx_method='rejection_sampling', epsilon=epsilon, m_bound=1)
+                # is_errors[epsilon] = is_model.compute_avg_recon_error(is_model.test_t)
+
+            # Process errors and plot
+            df1 = pd.DataFrame(analyze_gauss_errors, index=['AG']).transpose()
+            # df2 = pd.DataFrame(laplace_errors, index=['LP']).transpose()
+            # df3 = pd.DataFrame(is_errors, index=['IS']).transpose()
+            # df = pd.concat([df1, df2, df3], axis=1)
+            # df = pd.concat([df1, df2], axis=1)
+            df = df1
+            df['Non-private'] = orig_errors
+            print(f'delta: {delta}')
+            print(df)
+            # df.to_csv(f'delta_{delta}_results.csv')
+
+            # Find subplot indices
+            row_idx = int(idx / 2)
+            col_idx = int(idx % 2)
+
+            for col in list(df.columns):
+                axs[row_idx][col_idx].plot(
+                    df[col], label=col, marker='.', markersize=MARKER_SIZE
+                )
+                axs[row_idx][col_idx].legend(fontsize=LABEL_SIZE)
+
+            axs[row_idx][col_idx].set_title(f'delta = {delta}', fontsize=SUB_TITLE_SIZE)
+            axs[row_idx][col_idx].set_xlabel('Epsilon', fontsize=LABEL_SIZE)
+            axs[row_idx][col_idx].set_ylabel('Recon Error', fontsize=LABEL_SIZE)
+            axs[row_idx][col_idx].tick_params(axis='both', which='major', labelsize=LABEL_SIZE)
+
+        fig.suptitle(
+            'Average Test Set Reconstruction Error by Privacy Budget (AG v. Baseline)',
+            fontsize=TITLE_SIZE
+        )
+        plt.show()
+
 
         # Reconstruct samples
         # t1 = test_data[:, 2]
