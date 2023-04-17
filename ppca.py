@@ -6,6 +6,9 @@ import os
 import matplotlib.pyplot as plt
 from load_data import load_MNIST_data, load_tabular_data
 from cov_mtx import compute_cov_mtx
+import pickle
+
+
 
 
 class PPCA():
@@ -99,6 +102,12 @@ class PPCA():
         t = np.random.multivariate_normal(mean, variance).reshape(self.d, 1)
         return t
 
+
+def save_model(model):
+    with open(model.filename, 'wb') as outp:  # Overwrites any existing file.
+        pickle.dump(model, outp, pickle.HIGHEST_PROTOCOL)
+
+
 def plot_MNIST_digit(pixels):
     if pixels.shape != (28, 28):
         pixels = pixels.reshape(28, 28)
@@ -106,7 +115,7 @@ def plot_MNIST_digit(pixels):
     plt.show()
 
 
-def recon(idx):
+def recon(idx, model):
     t1 = test_data[:, idx]
     t1_hat = model.reconstruct_sample(t1)
     img_list = [t1, t1_hat]

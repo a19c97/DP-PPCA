@@ -22,12 +22,13 @@ def compute_cov_mtx(t, method=None, epsilon=None, delta=None, m_bound=None):
         assert delta is None
 
         # Initialize variables
+        n = t.shape[1]
         C = cov_mtx
         P = np.identity(d)
         eigs = np.linalg.eig(C)
         lambdas = eigs[0].real.reshape(d, 1)
         eps0 = epsilon/2
-        lambdas_hat = lambdas + np.random.laplace(scale=2/eps0, size=(d, 1))
+        lambdas_hat = lambdas + np.random.laplace(scale=2/(eps0*n), size=(d, 1))
         thetas = np.array([])
 
         for i in range(1, d+1):
@@ -60,7 +61,8 @@ def compute_cov_mtx(t, method=None, epsilon=None, delta=None, m_bound=None):
     elif method == 'analyze_gauss':
         # Compute sensitivity
         assert epsilon is not None and delta is not None
-        sensitivity = np.sqrt((2*np.log(1.25/delta)) / epsilon)
+        n = t.shape[1]
+        sensitivity = np.sqrt(2*np.log(1.25/delta)) / (epsilon * n)
 
         # Sample error matrix (upper triangular part)
         E = np.zeros((d, d))
