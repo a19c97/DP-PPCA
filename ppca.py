@@ -166,31 +166,9 @@ if __name__ == '__main__':
         # train_data, test_data = load_tabular_data('wine')
 
         # MNIST experiments - main graph
-        # epsilon_list = [1e-3, 1e-2, 1e-1, 0.5, 1, 10]
-        # delta_list = [0.0001, 0.001, 0.01, 0.1]
-        # train_data, test_data = load_MNIST_data()
-        #
-        # for epsilon in epsilon_list:
-        #     is_model = PPCA(
-        #             train_data, test_data, 100, cov_mtx_method='rejection_sampling',
-        #             epsilon=epsilon, m_bound=1
-        #     )
-        #     save_model(is_model)
-        #
-        #     laplace_model = PPCA(train_data, test_data, 100, cov_mtx_method='laplace', epsilon=epsilon)
-        #     save_model(laplace_model)
-        #
-        #     for delta in delta_list:
-        #         gauss_model = PPCA(
-        #             train_data, test_data, 100, cov_mtx_method='analyze_gauss', epsilon=epsilon, delta=delta
-        #         )
-        #         save_model(gauss_model)
-
-        # MNIST zoomed-in AG versus baseline
-        epsilon_list = [0.0001, 0.0005, 0.001, 0.005, 0.0075, 0.01, 0.02, 0.03, 0.04, 0.05]
+        epsilon_list = [1e-3, 1e-2, 1e-1, 0.5, 1, 10]
         delta_list = [0.0001, 0.001, 0.01, 0.1]
         train_data, test_data = load_MNIST_data()
-
         orig_model = PPCA(train_data, test_data, 100)
         orig_errors = orig_model.compute_avg_recon_error(orig_model.test_t)
 
@@ -198,33 +176,34 @@ if __name__ == '__main__':
             2, 2, figsize=(12, 4), gridspec_kw={'wspace': 0.5}
         )
 
+        # Load models and build dataframes
         for idx, delta in enumerate(delta_list):
             analyze_gauss_errors = {}
             laplace_errors = {}
             is_errors = {}
 
             for epsilon in epsilon_list:
-                gauss_model = PPCA(
-                    train_data, test_data, 100, cov_mtx_method='analyze_gauss', epsilon=epsilon, delta=delta
-                )
+                # Load models from save files
+                with open(f'./saved_models/AG_epsilon_{epsilon}_delta_{delta}.pkl', 'rb') as save_file:
+                    gauss_model = pickle.load(save_file)
                 analyze_gauss_errors[epsilon] = gauss_model.compute_avg_recon_error(gauss_model.test_t)
-                # laplace_model = PPCA(train_data, test_data, 100, cov_mtx_method='laplace', epsilon=epsilon)
-                # laplace_errors[epsilon] = laplace_model.compute_avg_recon_error(laplace_model.test_t)
-                # is_model = PPCA(
-                #     train_data, test_data, 100, cov_mtx_method='rejection_sampling', epsilon=epsilon, m_bound=1)
-                # is_errors[epsilon] = is_model.compute_avg_recon_error(is_model.test_t)
 
-            # Process errors and plot
+                with open(f'./saved_models/LP_epsilon_{epsilon}.pkl', 'rb') as save_file:
+                    laplace_model = pickle.load(save_file)
+                laplace_errors[epsilon] = laplace_model.compute_avg_recon_error(laplace_model.test_t)
+
+                with open(f'./saved_models/IS_epsilon_{epsilon}.pkl', 'rb') as save_file:
+                    is_model = pickle.load(save_file)
+                is_errors[epsilon] = is_model.compute_avg_recon_error(is_model.test_t)
+
             df1 = pd.DataFrame(analyze_gauss_errors, index=['AG']).transpose()
-            # df2 = pd.DataFrame(laplace_errors, index=['LP']).transpose()
-            # df3 = pd.DataFrame(is_errors, index=['IS']).transpose()
-            # df = pd.concat([df1, df2, df3], axis=1)
-            # df = pd.concat([df1, df2], axis=1)
-            df = df1
+            df2 = pd.DataFrame(laplace_errors, index=['LP']).transpose()
+            df3 = pd.DataFrame(is_errors, index=['IS']).transpose()
+            df = pd.concat([df1, df2, df3], axis=1)
             df['Non-private'] = orig_errors
             print(f'delta: {delta}')
             print(df)
-            # df.to_csv(f'delta_{delta}_results.csv')
+            df.to_csv(f'delta_{delta}_results.csv')
 
             # Find subplot indices
             row_idx = int(idx / 2)
@@ -242,7 +221,7 @@ if __name__ == '__main__':
             axs[row_idx][col_idx].tick_params(axis='both', which='major', labelsize=LABEL_SIZE)
 
         fig.suptitle(
-            'Average Test Set Reconstruction Error by Privacy Budget (AG v. Baseline)',
+            'Average Test Set Reconstruction Error by Privacy Budget (All Methods)',
             fontsize=TITLE_SIZE
         )
         plt.show()
